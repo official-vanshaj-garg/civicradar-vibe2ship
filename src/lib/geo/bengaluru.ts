@@ -125,7 +125,7 @@ export function roundCoord(n: number) {
 // Location source-of-truth resolver.
 //
 // CivicRadar rule: the user-selected/entered area is authoritative. The AI
-// classifier (mock today, AI Inference Engine later) MUST NEVER override location fields.
+// classifier (mock today, Civic AI Triage later) MUST NEVER override location fields.
 // This helper normalizes whatever the report form gives us into a consistent
 // { area_label, location_text, latitude, longitude } tuple used everywhere
 // downstream (Dashboard, Map, Insights all read these stored fields directly).

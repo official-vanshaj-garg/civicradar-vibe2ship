@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "CivicRadar turns scattered local gaps into structured Civic Issue Cards. Pilot live in Bengaluru. AI inference engine ready.",
+          "CivicRadar turns scattered local gaps into structured Civic Issue Cards. Pilot live in Bengaluru. Civic AI Triage ready.",
       },
       { property: "og:title", content: "CivicRadar — Hyperlocal Civic Intelligence" },
       {
@@ -158,7 +158,7 @@ function Landing() {
           <Step
             n={1}
             title="Report"
-            body="Anyone can describe a missing local service in plain language. No login. No PII."
+            body="Anyone can describe a local issue in plain language. No login. No PII."
           />
           <Step
             n={2}
@@ -245,30 +245,14 @@ function Landing() {
       <section className="mx-auto mt-20 max-w-7xl px-4 sm:px-6">
         <SectionHeading kicker="Who it's for" title="One signal layer · five audiences" />
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <UseCase icon={Users} label="Residents" body="Report issues without noise." />
+          <UseCase icon={Building2} label="RWAs" body="See repeated problems by area." />
+          <UseCase icon={Landmark} label="NGOs" body="Identify community needs faster." />
+          <UseCase icon={ShieldCheck} label="Civic teams" body="Prioritize issues by urgency." />
           <UseCase
             icon={GraduationCap}
-            label="Students"
-            body="Get the spaces, food and services your campus skipped."
-          />
-          <UseCase
-            icon={Briefcase}
-            label="Local businesses"
-            body="See validated, geo-tagged civic issues before opening."
-          />
-          <UseCase
-            icon={Users}
-            label="NGOs"
-            body="Find underserved zones for high-impact intervention."
-          />
-          <UseCase
-            icon={Landmark}
-            label="Civic bodies"
-            body="Privacy-safe priority signals from real residents."
-          />
-          <UseCase
-            icon={Lightbulb}
-            label="Local entrepreneurs"
-            body="Spot opportunity gaps your neighborhood is asking for."
+            label="Colleges/Campuses"
+            body="Track student-area safety and access gaps."
           />
         </div>
       </section>

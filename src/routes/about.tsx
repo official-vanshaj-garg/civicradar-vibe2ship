@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Sparkles, Radar, Map, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
@@ -25,15 +25,15 @@ function About() {
       </h1>
       <p className="mt-4 text-lg text-muted-foreground">
         CivicRadar turns scattered local frustrations into structured, privacy-safe Civic Issue
-        Cards â€” and surfaces them on a map and dashboard so the right actors can respond before
-        the gap turns into a crisis.
+        Cards - and surfaces them on a map and dashboard so the right actors can respond before the
+        gap turns into a crisis.
       </p>
 
       <Section title="What CivicRadar is" icon={Radar}>
         <p>
-          An intelligence layer between residents and the people who can act â€” local businesses,
-          civic bodies, NGOs, and entrepreneurs. Every signal becomes a typed Civic Issue Card with
-          category, urgency, signal strength, confidence, and a recommended actor.
+          An intelligence layer between residents, RWAs, NGOs, campus teams, and civic stakeholders.
+          Every report becomes a typed Civic Issue Card with category, urgency, signal strength,
+          confidence, and a recommended actor.
         </p>
       </Section>
 
@@ -41,9 +41,9 @@ function About() {
         <p>
           Traditional local feedback stays scattered and hard to act on. CivicRadar does the
           opposite: it converts unmet needs into{" "}
-          <span className="text-foreground">civic intelligence</span> â€” ranked, geo-tagged,
-          clustered, and routed. Operators see opportunity. Civic bodies see priority. Residents see
-          action.
+          <span className="text-foreground">civic intelligence</span> - ranked, geo-tagged,
+          clustered, and routed. Residents see visibility. Community groups see patterns. Civic
+          stakeholders see priority.
         </p>
       </Section>
 
@@ -70,7 +70,7 @@ function About() {
 
       <Section title="Privacy-first design" icon={ShieldCheck}>
         <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-          <li>Anonymous reporting â€” only an opaque session id is stored locally.</li>
+          <li>Anonymous reporting - only an opaque session id is stored locally.</li>
           <li>Coordinates rounded to ~110m before storage.</li>
           <li>Phone numbers, emails and long ID-like numbers are auto-redacted from raw text.</li>
           <li>No tracking pixels, no third-party analytics in the MVP.</li>
@@ -80,20 +80,19 @@ function About() {
       <Section title="Model-ready AI architecture" icon={Sparkles}>
         <p>
           Today, the intelligence layer runs a deterministic demo classifier so the experience is
-          fast and reproducible. The contract â€”{" "}
-          <span className="font-mono text-primary">classify(input) â†’ ClassifyOutput</span> â€” is
+          fast and reproducible. The contract -{" "}
+          <span className="font-mono text-primary">classify(input) -&gt; ClassifyOutput</span> - is
           the only swap point. When a production model is wired into the adapter, the UI, schema,
           dashboard, and map don't move. Future model integration will run server-side and stream
           sharper categorisation, urgency calibration, and cluster naming.
         </p>
       </Section>
 
-      <Section title="Future startup vision" icon={Radar}>
+      <Section title="Future civic vision" icon={Radar}>
         <p>
-          Bengaluru is the pilot. Next: every campus town, every Tier-1 ward, every Tier-2
-          neighborhood. Long-term, CivicRadar becomes the API for hyperlocal civic issues â€” used
-          by quick-commerce, transit planners, micro-entrepreneurs, and civic-tech operators to
-          allocate resources where residents are actively asking for them.
+          Future civic vision: every campus, ward, and neighborhood can maintain a live issue
+          intelligence layer that helps communities surface problems earlier, prioritize limited
+          resources, and coordinate action transparently.
         </p>
       </Section>
 

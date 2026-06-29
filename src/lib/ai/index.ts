@@ -1,4 +1,4 @@
-// CivicRadar — AI Inference Engine entry point.
+// CivicRadar — Civic AI Triage entry point.
 // All AI-derived fields flow through this single function.
 //
 // This is the single swap point ("model adapter") for any future provider.

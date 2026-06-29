@@ -29,10 +29,11 @@ export const Route = createFileRoute("/report")({
 });
 
 const EXAMPLES = [
-  "We need a 24-hour study library near our college — PG rooms are too noisy.",
-  "No 24x7 pharmacy nearby. Night-time emergencies are scary.",
-  "Auto refusals after 10pm leave women stranded at the metro station.",
-  "Affordable thali under ₹100 is impossible to find in this area.",
+  "Large pothole near college gate causing bike skids",
+  "Streetlights not working near hostel road",
+  "Garbage overflowing near bus stop",
+  "Water leakage blocking the footpath",
+  "Unsafe crossing near metro exit",
 ];
 
 function StepDots({ step }: { step: number }) {
@@ -139,7 +140,7 @@ function ReportPage() {
             Report Issue
           </div>
           <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
-            Tell CivicRadar what's missing
+            Report a local issue
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Anonymous · privacy-safe · no login.</p>
         </div>
@@ -157,7 +158,7 @@ function ReportPage() {
         <div className="rounded-2xl border border-border bg-glass p-6 glass">
           {step === 1 && (
             <div>
-              <h2 className="font-display text-xl font-semibold">1. Describe the need</h2>
+              <h2 className="font-display text-xl font-semibold">1. Describe the issue</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Plain language is fine. Phone numbers and emails are auto-redacted.
               </p>
@@ -165,7 +166,7 @@ function ReportPage() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={6}
-                placeholder="e.g. There's no 24-hour study library near our college. PG rooms are too noisy during exams."
+                placeholder="e.g. Streetlights have been off near the hostel road for three nights, making the area unsafe after 8 PM."
                 className="mt-4 w-full resize-none rounded-xl border border-border bg-background/50 p-4 text-sm outline-none focus:border-primary/60"
               />
               <div className="mt-3 flex flex-wrap gap-2">
