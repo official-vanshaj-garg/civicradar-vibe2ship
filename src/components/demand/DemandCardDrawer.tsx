@@ -1,17 +1,29 @@
 import type { DemandReport } from "@/domain/demand";
-import { ACTOR_LABEL, CATEGORY_META } from "@/domain/demand";
+import { buildCivicActionBrief, CATEGORY_META } from "@/domain/demand";
 import { X, MapPin, Users, ShieldCheck, Lightbulb, Activity, Hash } from "lucide-react";
-import { ConfidenceBar, ImpactPriorityTag, SignalStrengthMeter, UrgencyChip } from "./Indicators";
+import {
+  CivicPriorityBadge,
+  CivicPriorityMeter,
+  ConfidenceBar,
+  ImpactPriorityTag,
+  SignalStrengthMeter,
+  UrgencyChip,
+} from "./Indicators";
 
 export function DemandCardDrawer({
   demand,
+  allDemands,
+  nowMs,
   onClose,
 }: {
   demand: DemandReport | null;
+  allDemands: DemandReport[];
+  nowMs: number;
   onClose: () => void;
 }) {
   if (!demand) return null;
   const meta = CATEGORY_META[demand.category];
+  const brief = buildCivicActionBrief(demand, allDemands, nowMs);
   return (
     <div className="fixed inset-0 z-50">
       <div
@@ -49,47 +61,57 @@ export function DemandCardDrawer({
                 {demand.title}
               </h2>
             </div>
-            <SignalStrengthMeter value={demand.signal_strength} size={84} />
+            <div className="flex shrink-0 items-center gap-2">
+              <CivicPriorityMeter score={brief.civicPriorityScore} size={84} />
+              <SignalStrengthMeter value={demand.signal_strength} size={64} />
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <UrgencyChip value={demand.urgency} />
             <ImpactPriorityTag value={demand.impact_priority} />
+            <CivicPriorityBadge
+              score={brief.civicPriorityScore}
+              reason={brief.civicPriorityReason}
+            />
             <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
               <ShieldCheck className="h-3 w-3" />
               Privacy: {demand.privacy_status}
             </span>
             <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
               <Hash className="h-3 w-3" />
-              {demand.similar_reports_count} similar nearby
+              {brief.communitySignalLabel}
             </span>
           </div>
 
           <div className="mt-6 grid gap-4 rounded-xl border border-border bg-surface/60 p-4">
             <Field label="Need summary">{demand.need_summary}</Field>
+            <Field label="Civic Priority">
+              {brief.civicPriorityScore}/100 - {brief.civicPriorityReason}
+            </Field>
+            <Field label="Community signal strength">
+              {brief.communitySignalLabel} - signal strength {brief.communitySignalStrength}/100
+            </Field>
+            <Field label="Why it matters">{brief.whyItMatters}</Field>
             <ConfidenceBar value={demand.confidence_score} />
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Stat
-              icon={Users}
-              label="Affected group"
-              value={demand.affected_group.replace("_", " ")}
-            />
+            <Stat icon={Users} label="Affected group" value={brief.affectedGroupLabel} />
             <Stat icon={MapPin} label="Location" value={demand.location_text} />
-            <Stat icon={Activity} label="Status" value={demand.status} />
+            <Stat icon={Activity} label="Status" value={brief.statusLabel} />
             <Stat
               icon={Lightbulb}
-              label="Recommended actor"
-              value={ACTOR_LABEL[demand.recommended_actor]}
+              label="Responsible stakeholder"
+              value={brief.responsibleStakeholder}
             />
           </div>
 
           <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 p-4">
             <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-primary">
-              Suggested action
+              Suggested next action
             </div>
-            <p className="mt-1 text-sm">{demand.suggested_action}</p>
+            <p className="mt-1 text-sm">{brief.suggestedNextAction}</p>
           </div>
 
           <div className="mt-5 rounded-xl border border-border bg-surface/40 p-4">

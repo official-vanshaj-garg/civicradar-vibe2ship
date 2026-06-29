@@ -33,7 +33,7 @@ function About() {
         <p>
           An intelligence layer between residents, RWAs, NGOs, campus teams, and civic stakeholders.
           Every report becomes a typed Civic Issue Card with category, urgency, signal strength,
-          confidence, and a recommended actor.
+          confidence, and a responsible stakeholder.
         </p>
       </Section>
 
@@ -41,9 +41,9 @@ function About() {
         <p>
           Traditional local feedback stays scattered and hard to act on. CivicRadar does the
           opposite: it converts unmet needs into{" "}
-          <span className="text-foreground">civic intelligence</span> - ranked, geo-tagged,
-          clustered, and routed. Residents see visibility. Community groups see patterns. Civic
-          stakeholders see priority.
+          <span className="text-foreground">civic intelligence</span> - ranked, geo-tagged, grouped
+          by area/category, and routed. Residents see visibility. Community groups see patterns.
+          Civic stakeholders see priority.
         </p>
       </Section>
 
@@ -59,11 +59,11 @@ function About() {
           </li>
           <li>
             <span className="text-primary font-mono">03</span> &nbsp;Cards stream into the live
-            feed, plot on the map, cluster by area + category.
+            feed, plot on the map, and group by area + category.
           </li>
           <li>
             <span className="text-primary font-mono">04</span> &nbsp;The Insights page surfaces
-            action scores and recommended actions per cluster.
+            Civic Priority scores and suggested actions per signal group.
           </li>
         </ol>
       </Section>
@@ -84,7 +84,7 @@ function About() {
           <span className="font-mono text-primary">classify(input) -&gt; ClassifyOutput</span> - is
           the only swap point. When a production model is wired into the adapter, the UI, schema,
           dashboard, and map don't move. Future model integration will run server-side and stream
-          sharper categorisation, urgency calibration, and cluster naming.
+          sharper categorisation, urgency calibration, and stakeholder routing.
         </p>
       </Section>
 

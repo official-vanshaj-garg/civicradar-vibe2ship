@@ -1,12 +1,13 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Loader2, MapPin, Sparkles, Check } from "lucide-react";
 import { classify } from "@/lib/ai";
 import type { ClassifyOutput, DemandReport } from "@/domain/demand";
-import { ACTOR_LABEL, CATEGORY_META } from "@/domain/demand";
+import { buildCivicActionBrief, CATEGORY_META } from "@/domain/demand";
 import { BLR_ZONES, projectToCanvas, resolveLocation } from "@/lib/geo/bengaluru";
-import { addDemand, getSessionId } from "@/lib/data/store";
+import { addDemand, getSessionId, useDemands } from "@/lib/data/store";
 import {
+  CivicPriorityBadge,
   ConfidenceBar,
   ImpactPriorityTag,
   SignalStrengthMeter,
@@ -50,7 +51,7 @@ function StepDots({ step }: { step: number }) {
 }
 
 function ReportPage() {
-  const nav = useNavigate();
+  const { all } = useDemands();
   const [step, setStep] = useState(1);
   const [text, setText] = useState("");
   const [zoneKey, setZoneKey] = useState<string | null>(null);
@@ -58,6 +59,7 @@ function ReportPage() {
   const [running, setRunning] = useState(false);
   const [card, setCard] = useState<ClassifyOutput | null>(null);
   const [submitted, setSubmitted] = useState<DemandReport | null>(null);
+  const nowMs = useMemo(() => Date.now(), []);
 
   const zone = useMemo(
     () => (zoneKey ? (BLR_ZONES.find((z) => z.key === zoneKey) ?? null) : null),
@@ -264,7 +266,13 @@ function ReportPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Structured by the CivicRadar intelligence layer · demo mode.
               </p>
-              <DemandPreview card={card} area={zone.label} location={locText || zone.label} />
+              <DemandPreview
+                card={card}
+                area={zone.label}
+                location={locText || zone.label}
+                allDemands={all}
+                nowMs={nowMs}
+              />
               <div className="mt-6 flex justify-between">
                 <button
                   onClick={() => setStep(2)}
@@ -375,7 +383,7 @@ function ReportPage() {
             <li>· Anonymous reporting (no login)</li>
             <li>· Coordinates rounded for privacy</li>
             <li>· Phone / email auto-redacted</li>
-            <li>· Recommended actor surfaced from category</li>
+            <li>· Responsible stakeholder recommended from category</li>
           </ul>
         </aside>
       </div>
@@ -387,12 +395,30 @@ function DemandPreview({
   card,
   area,
   location,
+  allDemands,
+  nowMs,
 }: {
   card: ClassifyOutput;
   area: string;
   location: string;
+  allDemands: DemandReport[];
+  nowMs: number;
 }) {
   const meta = CATEGORY_META[card.category];
+  const previewDemand: DemandReport = {
+    id: "preview",
+    created_at: new Date(nowMs).toISOString(),
+    reporter_session: "preview",
+    raw_text: card.clean_text,
+    location_text: location,
+    area_label: area,
+    latitude: 0,
+    longitude: 0,
+    status: "new",
+    upvotes: 1,
+    ...card,
+  };
+  const brief = buildCivicActionBrief(previewDemand, allDemands, nowMs);
   return (
     <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/[0.04] p-5">
       <div className="flex items-start justify-between gap-4">
@@ -412,7 +438,7 @@ function DemandPreview({
         <UrgencyChip value={card.urgency} />
         <ImpactPriorityTag value={card.impact_priority} />
         <span className="rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
-          Affected: {card.affected_group.replace("_", " ")}
+          Affected: {brief.affectedGroupLabel}
         </span>
         <span className="rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
           Privacy: {card.privacy_status}
@@ -425,9 +451,13 @@ function DemandPreview({
         <Field label="Location">
           {location} · {area}
         </Field>
-        <Field label="Recommended actor">{ACTOR_LABEL[card.recommended_actor]}</Field>
-        <Field label="Similar reports nearby">{card.similar_reports_count}</Field>
-        <Field label="Suggested action">{card.suggested_action}</Field>
+        <Field label="Civic Priority">
+          <CivicPriorityBadge score={brief.civicPriorityScore} reason={brief.civicPriorityReason} />
+        </Field>
+        <Field label="Responsible stakeholder">{brief.responsibleStakeholder}</Field>
+        <Field label="Community signal strength">{brief.communitySignalLabel}</Field>
+        <Field label="Suggested next action">{brief.suggestedNextAction}</Field>
+        <Field label="Why it matters">{brief.whyItMatters}</Field>
       </div>
     </div>
   );

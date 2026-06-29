@@ -168,7 +168,7 @@ function Landing() {
           <Step
             n={3}
             title="Act"
-            body="Civic Issue Cards cluster on the map and surface in the Civic Action Board with recommended actors and actions."
+            body="Civic Issue Cards plot on the map and surface in the Civic Action Board with responsible stakeholders and suggested actions."
           />
         </div>
       </section>

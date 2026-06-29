@@ -2,16 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useDemands, toggleUpvote } from "@/lib/data/store";
 import {
+  buildCivicActionBrief,
   CATEGORY_META,
   PRIORITY_RANK,
+  type CivicActionBrief,
   type DemandCategory,
   type DemandReport,
 } from "@/domain/demand";
 import { BLR_ZONES } from "@/lib/geo/bengaluru";
 import { DemandCard } from "@/components/demand/DemandCard";
 import { DemandCardDrawer } from "@/components/demand/DemandCardDrawer";
+import { CivicPriorityBadge } from "@/components/demand/Indicators";
 import { LiveSignalFeed } from "@/components/feed/LiveSignalFeed";
-import { Activity, TrendingUp, MapPin, Layers } from "lucide-react";
+import { Activity, TrendingUp, MapPin, Layers, ClipboardList } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -20,7 +23,7 @@ export const Route = createFileRoute("/dashboard")({
       {
         name: "description",
         content:
-          "The Civic Intelligence OS for Bengaluru: signals, hotspots, action scores, and recommended actions.",
+          "The Civic Intelligence OS for Bengaluru: signals, hotspots, Civic Priority scores, and suggested actions.",
       },
     ],
   }),
@@ -28,9 +31,10 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const { all, upvotes, ready } = useDemands();
+  const { all, upvotes } = useDemands();
   const [open, setOpen] = useState<DemandReport | null>(null);
   const [sort, setSort] = useState<"recent" | "signal" | "urgent">("signal");
+  const nowMs = useMemo(() => Date.now(), []);
 
   const stats = useMemo(() => {
     const total = all.length;
@@ -47,6 +51,18 @@ function Dashboard() {
     const hotspot = [...areaCount.entries()].sort((a, b) => b[1] - a[1])[0];
     return { total, avgSignal, topCat, hotspot, catCount, areaCount };
   }, [all]);
+
+  const actionQueue = useMemo(() => {
+    return all
+      .map((d) => ({ demand: d, brief: buildCivicActionBrief(d, all, nowMs) }))
+      .sort(
+        (a, b) =>
+          b.brief.civicPriorityScore - a.brief.civicPriorityScore ||
+          b.demand.urgency - a.demand.urgency ||
+          b.demand.signal_strength - a.demand.signal_strength,
+      )
+      .slice(0, 6);
+  }, [all, nowMs]);
 
   const sorted = useMemo(() => {
     const arr = [...all];
@@ -100,6 +116,8 @@ function Dashboard() {
           hint={stats.hotspot ? `${stats.hotspot[1]} signals` : ""}
         />
       </div>
+
+      <ActionQueue rows={actionQueue} onOpen={setOpen} />
 
       {/* Matrix + Area leaderboard */}
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -203,6 +221,8 @@ function Dashboard() {
             <DemandCard
               key={d.id}
               d={d}
+              allDemands={all}
+              nowMs={nowMs}
               onOpen={setOpen}
               onUpvote={(id) => toggleUpvote(id)}
               upvoted={!!upvotes[d.id]}
@@ -211,8 +231,94 @@ function Dashboard() {
         </div>
       </div>
 
-      <DemandCardDrawer demand={open} onClose={() => setOpen(null)} />
+      <DemandCardDrawer
+        demand={open}
+        allDemands={all}
+        nowMs={nowMs}
+        onClose={() => setOpen(null)}
+      />
     </div>
+  );
+}
+
+function ActionQueue({
+  rows,
+  onOpen,
+}: {
+  rows: Array<{ demand: DemandReport; brief: CivicActionBrief }>;
+  onOpen: (d: DemandReport) => void;
+}) {
+  return (
+    <section className="mt-8 rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 glass">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-sm font-semibold uppercase tracking-widest">
+            Top Civic Issues Needing Action
+          </h2>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          sorted by Civic Priority
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {rows.map(({ demand, brief }) => {
+          const meta = CATEGORY_META[demand.category];
+          return (
+            <button
+              key={demand.id}
+              onClick={() => onOpen(demand)}
+              className="grid w-full gap-3 rounded-xl border border-border bg-background/45 p-4 text-left transition hover:border-primary/45 hover:bg-primary/[0.06] lg:grid-cols-[1.25fr_0.65fr_0.85fr_1.25fr]"
+            >
+              <div className="min-w-0">
+                <div
+                  className="font-mono text-[10px] uppercase tracking-[0.18em]"
+                  style={{ color: meta.color }}
+                >
+                  {brief.categoryLabel}
+                </div>
+                <div className="mt-1 line-clamp-2 text-sm font-semibold">{demand.title}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {demand.area_label} - {brief.statusLabel} - {brief.urgencyLabel}
+                </div>
+              </div>
+
+              <div>
+                <CivicPriorityBadge
+                  score={brief.civicPriorityScore}
+                  reason={brief.civicPriorityReason}
+                  compact
+                />
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {brief.civicPriorityReason}
+                </div>
+              </div>
+
+              <div className="text-xs">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Responsible stakeholder
+                </div>
+                <div className="mt-1 font-medium text-foreground">
+                  {brief.responsibleStakeholder}
+                </div>
+                <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Community signal strength
+                </div>
+                <div className="mt-1 text-muted-foreground">{brief.communitySignalLabel}</div>
+              </div>
+
+              <div className="text-xs">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Suggested next action
+                </div>
+                <div className="mt-1 line-clamp-3 text-foreground">{brief.suggestedNextAction}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

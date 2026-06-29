@@ -33,7 +33,7 @@ Every major route was manually audited and tested to verify standard user flows:
 - **Reporting (`/report`)**: Jitter-based location simulation, fallback handling, and step-by-step form submission.
 - **Action Board (`/dashboard`)**: Metric aggregations, leaderboard sorting, and matrix table layout.
 - **Civic Grid (`/map`)**: Canvas pin rendering, category filtering, and drawer toggling.
-- **Insights (`/insights`)**: Clustered data presentation and opportunity/action score processing.
+- **Insights (`/insights`)**: Community signal group presentation and Civic Priority processing.
 
 ## Search Audit for Old Branding
 Before public readiness, automated global searches were performed across the entire repository to ensure legacy project branding and context were fully eradicated.
@@ -44,7 +44,7 @@ Before public readiness, automated global searches were performed across the ent
 - Legacy intelligence features (e.g. `[Old] Signal Engine`)
 - `demand graph`
 - `local demand intelligence`
-- Business-oriented terms and platform names
+- Non-civic legacy terms and platform names
 - Legacy metric names
 
 *Note: The string `demand` remains strictly as an internal TypeScript binding (e.g., `useDemands`, `DemandReport`) deeply embedded in the application architecture. This retains the structural stability of the demo without surfacing any legacy terminology to the public UI.*

@@ -47,6 +47,81 @@ export function SignalStrengthMeter({ value, size = 64 }: { value: number; size?
   );
 }
 
+export function CivicPriorityMeter({ score, size = 64 }: { score: number; size?: number }) {
+  const v = Math.max(0, Math.min(100, score));
+  const r = (size - 8) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c - (v / 100) * c;
+  return (
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+      title={`Civic Priority ${v}/100`}
+    >
+      <svg viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke="oklch(1 0 0 / 0.08)"
+          strokeWidth="4"
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          strokeWidth="4"
+          fill="none"
+          stroke="url(#priority-grad)"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={off}
+        />
+        <defs>
+          <linearGradient id="priority-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="oklch(0.80 0.17 70)" />
+            <stop offset="100%" stopColor="oklch(0.68 0.22 25)" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className="font-mono text-sm font-semibold text-foreground">{v}</span>
+        <span className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground">
+          priority
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function CivicPriorityBadge({
+  score,
+  reason,
+  compact = false,
+}: {
+  score: number;
+  reason?: string;
+  compact?: boolean;
+}) {
+  const v = Math.max(0, Math.min(100, score));
+  return (
+    <div
+      className={
+        "inline-flex items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-2.5 py-1 text-xs text-primary " +
+        (compact ? "font-mono" : "")
+      }
+      title={reason ? `Civic Priority: ${reason}` : "Civic Priority"}
+    >
+      <span className="font-mono text-[10px] uppercase tracking-widest">Civic Priority</span>
+      <span className="font-mono font-semibold text-foreground">{v}</span>
+      {!compact && reason && (
+        <span className="hidden text-muted-foreground sm:inline">{reason}</span>
+      )}
+    </div>
+  );
+}
+
 export function ConfidenceBar({ value }: { value: number }) {
   const v = Math.max(0, Math.min(100, value));
   return (

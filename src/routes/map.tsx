@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useDemands } from "@/lib/data/store";
-import { CATEGORY_META, type DemandCategory, type DemandReport } from "@/domain/demand";
+import {
+  buildCivicActionBrief,
+  CATEGORY_META,
+  type CivicActionBrief,
+  type DemandCategory,
+  type DemandReport,
+} from "@/domain/demand";
 import { CivicRadarMap } from "@/components/map/CivicRadarMap";
 import { DemandCardDrawer } from "@/components/demand/DemandCardDrawer";
+import { CivicPriorityBadge } from "@/components/demand/Indicators";
 import { Filter } from "lucide-react";
 
 export const Route = createFileRoute("/map")({
@@ -25,12 +32,22 @@ function MapPage() {
   const [cat, setCat] = useState<DemandCategory | "all">("all");
   const [minUrgency, setMinUrgency] = useState(1);
   const [open, setOpen] = useState<DemandReport | null>(null);
+  const nowMs = useMemo(() => Date.now(), []);
 
   const filtered = useMemo(
     () => all.filter((d) => (cat === "all" || d.category === cat) && d.urgency >= minUrgency),
     [all, cat, minUrgency],
   );
-  const sidebar = useMemo(() => filtered.slice(0, 30), [filtered]);
+  const sidebar = useMemo(() => {
+    return filtered
+      .map((d) => ({ demand: d, brief: buildCivicActionBrief(d, all, nowMs) }))
+      .sort(
+        (a, b) =>
+          b.brief.civicPriorityScore - a.brief.civicPriorityScore ||
+          b.demand.signal_strength - a.demand.signal_strength,
+      )
+      .slice(0, 30);
+  }, [all, filtered, nowMs]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -90,12 +107,12 @@ function MapPage() {
             </div>
           </div>
           <ul className="divide-y divide-border">
-            {sidebar.map((d) => {
-              const m = CATEGORY_META[d.category];
+            {sidebar.map(({ demand, brief }) => {
+              const m = CATEGORY_META[demand.category];
               return (
-                <li key={d.id}>
+                <li key={demand.id}>
                   <button
-                    onClick={() => setOpen(d)}
+                    onClick={() => setOpen(demand)}
                     className="block w-full px-4 py-3 text-left transition hover:bg-muted/30"
                   >
                     <div className="flex items-center gap-2">
@@ -107,13 +124,11 @@ function MapPage() {
                         {m.label}
                       </span>
                       <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                        sig {d.signal_strength}
+                        sig {demand.signal_strength}
                       </span>
                     </div>
-                    <div className="mt-1 line-clamp-2 text-sm">{d.title}</div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {d.area_label} · urgency {d.urgency}/5
-                    </div>
+                    <div className="mt-1 line-clamp-2 text-sm">{demand.title}</div>
+                    <MapBrief brief={brief} area={demand.area_label} />
                   </button>
                 </li>
               );
@@ -127,7 +142,33 @@ function MapPage() {
         </aside>
       </div>
 
-      <DemandCardDrawer demand={open} onClose={() => setOpen(null)} />
+      <DemandCardDrawer
+        demand={open}
+        allDemands={all}
+        nowMs={nowMs}
+        onClose={() => setOpen(null)}
+      />
+    </div>
+  );
+}
+
+function MapBrief({ brief, area }: { brief: CivicActionBrief; area: string }) {
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <CivicPriorityBadge
+          score={brief.civicPriorityScore}
+          reason={brief.civicPriorityReason}
+          compact
+        />
+        <span className="rounded-md bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+          {brief.statusLabel} - {brief.urgencyLabel}
+        </span>
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        {area} - {brief.responsibleStakeholder}
+      </div>
+      <div className="text-[11px] text-muted-foreground">{brief.communitySignalLabel}</div>
     </div>
   );
 }
