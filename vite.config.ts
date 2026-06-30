@@ -12,8 +12,9 @@ const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 
 export default defineConfig(({ command }) => ({
   server: {
-    host: "::",
+    host: "0.0.0.0",
     port: 8080,
+    allowedHosts: ["civicradar-378091373108.asia-south1.run.app", ".run.app"],
   },
   resolve: {
     alias: {

@@ -28,9 +28,9 @@ This is not official government integration. The demo does not claim automatic e
 - **UI & Styling**: Tailwind CSS, customized utility components, Lucide icons
 - **State Management**: React hooks with `localStorage` persistence
 
-## Google Technologies Utilized / Planned
-- **Gemini Pro (Planned)**: Integration with Gemini for robust, dynamic natural language classification and sentiment analysis.
-- **Google Cloud Platform (Planned)**: Hosting the application and utilizing Cloud SQL/BigQuery to store and analyze long-term civic data trends.
+## Google Technologies
+- **Google Cloud Run**: Google Cloud Run is used to host the public CivicRadar demo. The submitted deployment runs as a Cloud Run service in asia-south1. Cloud Build and Artifact Registry are used through the Cloud Run source deployment flow to build and store the deployed container image.
+- **Gemini / Google AI (Planned)**: Gemini / Google AI is adapter-ready for a future classifier, but the submitted demo uses deterministic in-browser civic triage for stability.
 
 ## Demo Flow
 1. **Explore the Map**: A user lands on the Bengaluru civic grid, visualizing existing seeded hotspots across various wards.

@@ -41,8 +41,8 @@ This is not official government integration and does not claim automatic escalat
 - **State/Storage**: LocalStorage (client-only persistence for demo)
 
 ## Google Technologies
-- **Google Cloud Run**: Google Cloud Run is the intended mandatory deployment target.
-- **Gemini / Google AI (Planned)**: The deterministic triage engine is built as an adapter. Gemini is future/adapter-ready, but not active. We plan to replace the mock function with a real Gemini inference API to handle dynamic natural language processing and complex categorization.
+- **Google Cloud Run**: Google Cloud Run is used to host the public CivicRadar demo. The submitted deployment runs as a Cloud Run service in asia-south1. Cloud Build and Artifact Registry are used through the Cloud Run source deployment flow to build and store the deployed container image.
+- **Gemini / Google AI (Planned)**: Gemini / Google AI is adapter-ready for a future classifier, but the submitted demo uses deterministic in-browser civic triage for stability.
 
 ## Current Scope & Honest Limitations
 To ensure a stable, robust Vibe2Ship demonstration, this build has the following boundaries:
