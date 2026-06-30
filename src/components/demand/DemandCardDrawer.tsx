@@ -1,6 +1,29 @@
 import type { DemandReport } from "@/domain/demand";
-import { buildCivicActionBrief, CATEGORY_META } from "@/domain/demand";
-import { X, MapPin, Users, ShieldCheck, Lightbulb, Activity, Hash } from "lucide-react";
+import {
+  buildCivicActionBrief,
+  buildCivicLifecycle,
+  buildGoogleMapsSearchUrl,
+  CATEGORY_META,
+  getApproximateLocationDetail,
+  getApproximateLocationLabel,
+  getEvidenceSummary,
+  getIssueApproximateLocation,
+  getVerificationLabel,
+} from "@/domain/demand";
+import {
+  X,
+  MapPin,
+  Users,
+  ShieldCheck,
+  Lightbulb,
+  Activity,
+  Hash,
+  CheckCircle2,
+  Circle,
+  ClipboardCheck,
+  ExternalLink,
+  FileText,
+} from "lucide-react";
 import {
   CivicPriorityBadge,
   CivicPriorityMeter,
@@ -14,16 +37,26 @@ export function DemandCardDrawer({
   demand,
   allDemands,
   nowMs,
+  verifiedByYou = false,
+  onVerify,
+  onMarkResolvedInDemo,
   onClose,
 }: {
   demand: DemandReport | null;
   allDemands: DemandReport[];
   nowMs: number;
+  verifiedByYou?: boolean;
+  onVerify?: (id: string) => void;
+  onMarkResolvedInDemo?: (id: string) => void;
   onClose: () => void;
 }) {
   if (!demand) return null;
   const meta = CATEGORY_META[demand.category];
   const brief = buildCivicActionBrief(demand, allDemands, nowMs);
+  const lifecycle = buildCivicLifecycle(demand, brief.responsibleStakeholder);
+  const verificationCount = demand.verificationCount ?? 0;
+  const approximateLocation = getIssueApproximateLocation(demand);
+  const googleMapsUrl = approximateLocation ? buildGoogleMapsSearchUrl(approximateLocation) : null;
   return (
     <div className="fixed inset-0 z-50">
       <div
@@ -82,12 +115,21 @@ export function DemandCardDrawer({
               <Hash className="h-3 w-3" />
               {brief.communitySignalLabel}
             </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <ClipboardCheck className="h-3 w-3" />
+              {getVerificationLabel(verificationCount)}
+            </span>
           </div>
 
           <div className="mt-6 grid gap-4 rounded-xl border border-border bg-surface/60 p-4">
             <Field label="Need summary">{demand.need_summary}</Field>
             <Field label="Civic Priority">
               {brief.civicPriorityScore}/100 - {brief.civicPriorityReason}
+            </Field>
+            <Field label="Evidence metadata">{getEvidenceSummary(demand.evidence)}</Field>
+            <Field label="Approximate location">
+              {getApproximateLocationLabel(approximateLocation)} -{" "}
+              {getApproximateLocationDetail(approximateLocation)}
             </Field>
             <Field label="Community signal strength">
               {brief.communitySignalLabel} - signal strength {brief.communitySignalStrength}/100
@@ -107,11 +149,103 @@ export function DemandCardDrawer({
             />
           </div>
 
+          {googleMapsUrl && (
+            <div className="mt-5 rounded-xl border border-border bg-surface/40 p-4">
+              <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+                Approximate location
+              </div>
+              <p className="mt-1 text-sm text-foreground">
+                {getApproximateLocationLabel(approximateLocation)} -{" "}
+                {getApproximateLocationDetail(approximateLocation)}
+              </p>
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              >
+                Open approximate location in Google Maps <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <p className="mt-2 text-xs text-muted-foreground">
+                External map handoff only. No Google Maps script, API key, or official dispatch is
+                used.
+              </p>
+            </div>
+          )}
+
           <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 p-4">
             <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-primary">
               Suggested next action
             </div>
             <p className="mt-1 text-sm">{brief.suggestedNextAction}</p>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-border bg-surface/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+                  Community verification
+                </div>
+                <p className="mt-1 text-sm text-foreground">
+                  {getVerificationLabel(verificationCount)}
+                </p>
+              </div>
+              <button
+                onClick={() => onVerify?.(demand.id)}
+                disabled={verifiedByYou}
+                className={
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition " +
+                  (verifiedByYou
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background/50 text-foreground hover:border-primary/50 hover:text-primary")
+                }
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {verifiedByYou ? "Verified by you" : "Verify this issue"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Local browser/device verification only. No official dispatch is performed.
+            </p>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-border bg-surface/40 p-4">
+            <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              Civic lifecycle
+            </div>
+            <div className="mt-3 space-y-3">
+              {lifecycle.map((stage) => (
+                <div key={stage.label} className="flex gap-3">
+                  {stage.complete ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  ) : (
+                    <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground">{stage.label}</div>
+                    <div className="text-xs text-muted-foreground">{stage.detail}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
+              <p className="text-xs text-muted-foreground">
+                Transparent demo workflow - no official dispatch is performed.
+              </p>
+              <button
+                onClick={() => onMarkResolvedInDemo?.(demand.id)}
+                disabled={demand.resolvedInDemo === true}
+                className={
+                  "rounded-md border px-3 py-1.5 text-xs transition " +
+                  (demand.resolvedInDemo
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background/50 text-muted-foreground hover:border-primary/50 hover:text-primary")
+                }
+              >
+                {demand.resolvedInDemo ? "Resolved in demo" : "Mark resolved in demo"}
+              </button>
+            </div>
           </div>
 
           <div className="mt-5 rounded-xl border border-border bg-surface/40 p-4">

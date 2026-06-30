@@ -1,5 +1,10 @@
 import type { DemandReport } from "@/domain/demand";
-import { buildCivicActionBrief, CATEGORY_META } from "@/domain/demand";
+import {
+  buildCivicActionBrief,
+  CATEGORY_META,
+  getEvidenceSummary,
+  getVerificationLabel,
+} from "@/domain/demand";
 import {
   CivicPriorityBadge,
   CivicPriorityMeter,
@@ -66,6 +71,8 @@ export function DemandCard({ d, allDemands, nowMs, onOpen, onUpvote, upvoted }: 
           <CivicPriorityBadge score={brief.civicPriorityScore} reason={brief.civicPriorityReason} />
         </div>
         <BriefLine label="Responsible stakeholder" value={brief.responsibleStakeholder} />
+        <BriefLine label="Evidence metadata" value={getEvidenceSummary(d.evidence)} />
+        <BriefLine label="Community verified" value={getVerificationLabel(d.verificationCount)} />
         <BriefLine label="Community signal strength" value={brief.communitySignalLabel} />
         <BriefLine label="Suggested next action" value={brief.suggestedNextAction} />
         <BriefLine label="Why it matters" value={brief.whyItMatters} />

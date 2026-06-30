@@ -37,6 +37,22 @@ export type RecommendedActor =
 export type ImpactPriority = "low" | "medium" | "high" | "critical";
 export type PrivacyStatus = "clean" | "redacted";
 export type DemandStatus = "new" | "reviewing" | "acknowledged";
+export type EvidenceType = "none" | "photo" | "video" | "witness_note";
+export type ApproximateLocationSource = "browser_geolocation" | "zone";
+
+export interface EvidenceMetadata {
+  type: EvidenceType;
+  note?: string;
+  recordedAt?: string;
+}
+
+export interface ApproximateLocation {
+  lat: number;
+  lng: number;
+  accuracyMeters?: number;
+  source: ApproximateLocationSource;
+  capturedAt?: string;
+}
 
 export interface ClassifyInput {
   raw_text: string;
@@ -74,6 +90,10 @@ export interface DemandReport extends ClassifyOutput {
   longitude: number;
   status: DemandStatus;
   upvotes: number;
+  evidence?: EvidenceMetadata;
+  approximateLocation?: ApproximateLocation;
+  verificationCount?: number;
+  resolvedInDemo?: boolean;
 }
 
 export const CATEGORY_META: Record<DemandCategory, { label: string; icon: string; color: string }> =

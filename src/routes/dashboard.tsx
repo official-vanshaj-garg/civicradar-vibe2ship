@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useDemands, toggleUpvote } from "@/lib/data/store";
+import { markResolvedInDemo, useDemands, toggleUpvote, verifyDemand } from "@/lib/data/store";
 import {
   buildCivicActionBrief,
   CATEGORY_META,
+  getEvidenceSummary,
+  getVerificationLabel,
   PRIORITY_RANK,
   type CivicActionBrief,
   type DemandCategory,
@@ -14,7 +16,7 @@ import { DemandCard } from "@/components/demand/DemandCard";
 import { DemandCardDrawer } from "@/components/demand/DemandCardDrawer";
 import { CivicPriorityBadge } from "@/components/demand/Indicators";
 import { LiveSignalFeed } from "@/components/feed/LiveSignalFeed";
-import { Activity, TrendingUp, MapPin, Layers, ClipboardList } from "lucide-react";
+import { Activity, TrendingUp, MapPin, Layers, ClipboardList, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -31,7 +33,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const { all, upvotes } = useDemands();
+  const { all, upvotes, verifiedIssueIds, contributionScore } = useDemands();
   const [open, setOpen] = useState<DemandReport | null>(null);
   const [sort, setSort] = useState<"recent" | "signal" | "urgent">("signal");
   const nowMs = useMemo(() => Date.now(), []);
@@ -41,6 +43,7 @@ function Dashboard() {
     const avgSignal = total
       ? Math.round(all.reduce((s, d) => s + d.signal_strength, 0) / total)
       : 0;
+    const verifiedTotal = all.filter((d) => (d.verificationCount ?? 0) > 0).length;
     const catCount = new Map<DemandCategory, number>();
     const areaCount = new Map<string, number>();
     all.forEach((d) => {
@@ -49,7 +52,7 @@ function Dashboard() {
     });
     const topCat = [...catCount.entries()].sort((a, b) => b[1] - a[1])[0];
     const hotspot = [...areaCount.entries()].sort((a, b) => b[1] - a[1])[0];
-    return { total, avgSignal, topCat, hotspot, catCount, areaCount };
+    return { total, avgSignal, verifiedTotal, topCat, hotspot, catCount, areaCount };
   }, [all]);
 
   const actionQueue = useMemo(() => {
@@ -77,6 +80,11 @@ function Dashboard() {
     return arr.slice(0, 9);
   }, [all, sort]);
 
+  const openDemand = useMemo(
+    () => (open ? (all.find((d) => d.id === open.id) ?? open) : null),
+    [all, open],
+  );
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
@@ -87,6 +95,17 @@ function Dashboard() {
       <p className="mt-1 text-sm text-muted-foreground">
         Live, ranked, geo-tagged civic issue signals — powered by the CivicRadar intelligence layer.
       </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-2 rounded-md border border-border bg-glass px-3 py-1.5 text-xs text-muted-foreground glass">
+          <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+          Civic contribution score:{" "}
+          <span className="font-mono text-foreground">{contributionScore}</span>
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-md border border-border bg-glass px-3 py-1.5 text-xs text-muted-foreground glass">
+          Community verified issues:{" "}
+          <span className="font-mono text-foreground">{stats.verifiedTotal}</span>
+        </span>
+      </div>
 
       {/* KPI tiles */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -232,9 +251,12 @@ function Dashboard() {
       </div>
 
       <DemandCardDrawer
-        demand={open}
+        demand={openDemand}
         allDemands={all}
         nowMs={nowMs}
+        verifiedByYou={openDemand ? !!verifiedIssueIds[openDemand.id] : false}
+        onVerify={verifyDemand}
+        onMarkResolvedInDemo={markResolvedInDemo}
         onClose={() => setOpen(null)}
       />
     </div>
@@ -306,6 +328,12 @@ function ActionQueue({
                   Community signal strength
                 </div>
                 <div className="mt-1 text-muted-foreground">{brief.communitySignalLabel}</div>
+                <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Community verified
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  {getVerificationLabel(demand.verificationCount)}
+                </div>
               </div>
 
               <div className="text-xs">
@@ -313,6 +341,9 @@ function ActionQueue({
                   Suggested next action
                 </div>
                 <div className="mt-1 line-clamp-3 text-foreground">{brief.suggestedNextAction}</div>
+                <div className="mt-2 text-muted-foreground">
+                  {getEvidenceSummary(demand.evidence)}
+                </div>
               </div>
             </button>
           );

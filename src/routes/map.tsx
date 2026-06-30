@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useDemands } from "@/lib/data/store";
+import { markResolvedInDemo, useDemands, verifyDemand } from "@/lib/data/store";
 import {
   buildCivicActionBrief,
   CATEGORY_META,
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/map")({
 });
 
 function MapPage() {
-  const { all, ready } = useDemands();
+  const { all, ready, verifiedIssueIds } = useDemands();
   const [cat, setCat] = useState<DemandCategory | "all">("all");
   const [minUrgency, setMinUrgency] = useState(1);
   const [open, setOpen] = useState<DemandReport | null>(null);
@@ -48,6 +48,11 @@ function MapPage() {
       )
       .slice(0, 30);
   }, [all, filtered, nowMs]);
+
+  const openDemand = useMemo(
+    () => (open ? (all.find((d) => d.id === open.id) ?? open) : null),
+    [all, open],
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -143,9 +148,12 @@ function MapPage() {
       </div>
 
       <DemandCardDrawer
-        demand={open}
+        demand={openDemand}
         allDemands={all}
         nowMs={nowMs}
+        verifiedByYou={openDemand ? !!verifiedIssueIds[openDemand.id] : false}
+        onVerify={verifyDemand}
+        onMarkResolvedInDemo={markResolvedInDemo}
         onClose={() => setOpen(null)}
       />
     </div>

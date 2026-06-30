@@ -1,10 +1,32 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Loader2, MapPin, Sparkles, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ExternalLink,
+  Loader2,
+  LocateFixed,
+  MapPin,
+  Sparkles,
+} from "lucide-react";
 import { classify } from "@/lib/ai";
-import type { ClassifyOutput, DemandReport } from "@/domain/demand";
-import { buildCivicActionBrief, CATEGORY_META } from "@/domain/demand";
-import { BLR_ZONES, projectToCanvas, resolveLocation } from "@/lib/geo/bengaluru";
+import type {
+  ApproximateLocation,
+  ClassifyOutput,
+  DemandReport,
+  EvidenceMetadata,
+  EvidenceType,
+} from "@/domain/demand";
+import {
+  buildCivicActionBrief,
+  buildGoogleMapsSearchUrl,
+  CATEGORY_META,
+  getApproximateLocationDetail,
+  getApproximateLocationLabel,
+  getIssueApproximateLocation,
+} from "@/domain/demand";
+import { BLR_ZONES, projectToCanvas, resolveLocation, roundCoord } from "@/lib/geo/bengaluru";
 import { addDemand, getSessionId, useDemands } from "@/lib/data/store";
 import {
   CivicPriorityBadge,
@@ -37,6 +59,22 @@ const EXAMPLES = [
   "Unsafe crossing near metro exit",
 ];
 
+const EVIDENCE_OPTIONS: Array<{ type: EvidenceType; label: string; hint: string }> = [
+  { type: "none", label: "No evidence", hint: "Report can still be submitted." },
+  { type: "photo", label: "Photo metadata", hint: "File upload is not enabled." },
+  { type: "video", label: "Video metadata", hint: "File upload is not enabled." },
+  { type: "witness_note", label: "Witness note", hint: "Short text note only." },
+];
+
+type GeoStatus =
+  | "idle"
+  | "requesting"
+  | "captured"
+  | "denied"
+  | "unavailable"
+  | "timeout"
+  | "error";
+
 function StepDots({ step }: { step: number }) {
   return (
     <div className="flex items-center gap-2">
@@ -50,12 +88,27 @@ function StepDots({ step }: { step: number }) {
   );
 }
 
+function findNearestZoneKey(lat: number, lng: number) {
+  return BLR_ZONES.reduce(
+    (best, zone) => {
+      const distance = (zone.lat - lat) ** 2 + (zone.lng - lng) ** 2;
+      return distance < best.distance ? { key: zone.key, distance } : best;
+    },
+    { key: BLR_ZONES[0].key, distance: Number.POSITIVE_INFINITY },
+  ).key;
+}
+
 function ReportPage() {
-  const { all } = useDemands();
+  const { all, contributionScore } = useDemands();
   const [step, setStep] = useState(1);
   const [text, setText] = useState("");
   const [zoneKey, setZoneKey] = useState<string | null>(null);
   const [locText, setLocText] = useState<string>("");
+  const [approximateLocation, setApproximateLocation] = useState<ApproximateLocation | null>(null);
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
+  const [geoMessage, setGeoMessage] = useState("");
+  const [evidenceType, setEvidenceType] = useState<EvidenceType>("none");
+  const [witnessNote, setWitnessNote] = useState("");
   const [running, setRunning] = useState(false);
   const [card, setCard] = useState<ClassifyOutput | null>(null);
   const [submitted, setSubmitted] = useState<DemandReport | null>(null);
@@ -82,6 +135,56 @@ function ReportPage() {
     return n + r * 0.018; // ~±1km
   }
 
+  function requestApproximateLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoStatus("unavailable");
+      setGeoMessage("Location permission was not available. Zone selection still works.");
+      return;
+    }
+
+    setGeoStatus("requesting");
+    setGeoMessage("Requesting approximate browser location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const captured: ApproximateLocation = {
+          lat: roundCoord(position.coords.latitude),
+          lng: roundCoord(position.coords.longitude),
+          accuracyMeters: Number.isFinite(position.coords.accuracy)
+            ? Math.round(position.coords.accuracy)
+            : undefined,
+          source: "browser_geolocation",
+          capturedAt: new Date().toISOString(),
+        };
+
+        setApproximateLocation(captured);
+        setGeoStatus("captured");
+        setGeoMessage("Approximate browser location captured. You can still adjust the zone.");
+        if (!zoneKey) setZoneKey(findNearestZoneKey(captured.lat, captured.lng));
+        if (!locText.trim()) setLocText("Approximate browser location");
+        if (card) setCard(null);
+      },
+      (error) => {
+        setApproximateLocation(null);
+        if (error.code === 1) {
+          setGeoStatus("denied");
+          setGeoMessage("Location permission was not available. Zone selection still works.");
+        } else if (error.code === 3) {
+          setGeoStatus("timeout");
+          setGeoMessage("Approximate location timed out. Zone selection still works.");
+        } else {
+          setGeoStatus("error");
+          setGeoMessage("Approximate location was unavailable. Zone selection still works.");
+        }
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 9000,
+        maximumAge: 60000,
+      },
+    );
+  }
+
   async function runClassify() {
     if (!zone) return;
     setRunning(true);
@@ -90,8 +193,8 @@ function ReportPage() {
         raw_text: text,
         area_label: zone.label,
         location_text: locText || zone.label,
-        latitude: zone.lat,
-        longitude: zone.lng,
+        latitude: approximateLocation?.lat ?? zone.lat,
+        longitude: approximateLocation?.lng ?? zone.lng,
       });
       setCard(out);
       setStep(3);
@@ -103,6 +206,13 @@ function ReportPage() {
   function submit() {
     if (!card || !zone) return;
     const id = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const evidence = buildEvidenceMetadata(evidenceType, witnessNote);
+    const fallbackLocation: ApproximateLocation = {
+      lat: jitter(zone.lat, id, 1),
+      lng: jitter(zone.lng, id, 7),
+      source: "zone",
+    };
+    const locationAssist = approximateLocation ?? fallbackLocation;
     // Resolve location from the user's selection — single source of truth.
     // resolveLocation guarantees: zone-derived centroid fallback if no coords,
     // and "Unknown Bengaluru Area" instead of any real zone if area is unknown.
@@ -110,10 +220,16 @@ function ReportPage() {
       zone_key: zone.key,
       area_label: zone.label,
       location_text: locText,
-      // Apply ±~1km deterministic jitter so user pins don't stack on the centroid.
-      latitude: jitter(zone.lat, id, 1),
-      longitude: jitter(zone.lng, id, 7),
+      latitude: locationAssist.lat,
+      longitude: locationAssist.lng,
     });
+    const storedApproximateLocation: ApproximateLocation = {
+      lat: loc.latitude,
+      lng: loc.longitude,
+      accuracyMeters: locationAssist.accuracyMeters,
+      source: locationAssist.source,
+      capturedAt: locationAssist.capturedAt,
+    };
     // IMPORTANT: spread `card` FIRST, then location fields LAST so the AI
     // output can never overwrite area_label / location_text / lat / lng.
     const report: DemandReport = {
@@ -123,6 +239,8 @@ function ReportPage() {
       raw_text: text,
       status: "new",
       upvotes: 1,
+      evidence,
+      approximateLocation: storedApproximateLocation,
       ...card,
       location_text: loc.location_text,
       area_label: loc.area_label,
@@ -222,6 +340,12 @@ function ReportPage() {
                   </button>
                 ))}
               </div>
+              <ApproximateLocationAssist
+                status={geoStatus}
+                message={geoMessage}
+                location={approximateLocation}
+                onRequest={requestApproximateLocation}
+              />
               <div className="mt-4">
                 <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   Specific landmark (optional)
@@ -233,6 +357,12 @@ function ReportPage() {
                   className="mt-1 w-full rounded-md border border-border bg-background/50 p-2.5 text-sm outline-none focus:border-primary/60"
                 />
               </div>
+              <EvidenceMetadataPicker
+                evidenceType={evidenceType}
+                setEvidenceType={setEvidenceType}
+                witnessNote={witnessNote}
+                setWitnessNote={setWitnessNote}
+              />
               <div className="mt-6 flex justify-between">
                 <button
                   onClick={() => setStep(1)}
@@ -270,6 +400,14 @@ function ReportPage() {
                 card={card}
                 area={zone.label}
                 location={locText || zone.label}
+                evidence={buildEvidenceMetadata(evidenceType, witnessNote)}
+                approximateLocation={
+                  approximateLocation ?? {
+                    lat: roundCoord(zone.lat),
+                    lng: roundCoord(zone.lng),
+                    source: "zone",
+                  }
+                }
                 allDemands={all}
                 nowMs={nowMs}
               />
@@ -312,6 +450,19 @@ function ReportPage() {
                   {submitted.impact_priority} impact
                 </div>
               </div>
+              <ReportLocationHandoff demand={submitted} />
+              <div className="mx-auto mt-3 max-w-md rounded-xl border border-border bg-surface/40 p-4 text-left">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Community contribution
+                </div>
+                <div className="mt-1 font-display text-2xl font-semibold">{contributionScore}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  +10 for this report
+                  {submitted.evidence?.type && submitted.evidence.type !== "none"
+                    ? " + 3 for evidence metadata"
+                    : ""}
+                </div>
+              </div>
               <div className="mt-6 flex justify-center gap-3">
                 <Link
                   to="/dashboard"
@@ -328,6 +479,11 @@ function ReportPage() {
                     setText("");
                     setCard(null);
                     setSubmitted(null);
+                    setEvidenceType("none");
+                    setWitnessNote("");
+                    setApproximateLocation(null);
+                    setGeoStatus("idle");
+                    setGeoMessage("");
                   }}
                   className="rounded-md border border-border px-4 py-2 text-sm"
                 >
@@ -391,16 +547,170 @@ function ReportPage() {
   );
 }
 
+function buildEvidenceMetadata(type: EvidenceType, note: string): EvidenceMetadata {
+  const cleanNote = note.trim().slice(0, 160);
+  return {
+    type,
+    note: type === "witness_note" && cleanNote ? cleanNote : undefined,
+    recordedAt: new Date().toISOString(),
+  };
+}
+
+function ApproximateLocationAssist({
+  status,
+  message,
+  location,
+  onRequest,
+}: {
+  status: GeoStatus;
+  message: string;
+  location: ApproximateLocation | null;
+  onRequest: () => void;
+}) {
+  const requesting = status === "requesting";
+  const captured = status === "captured" && location;
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-surface/30 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Browser-local assist
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Optional approximate location. Zone fallback remains available.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRequest}
+          disabled={requesting}
+          className="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/15 disabled:opacity-60"
+        >
+          <LocateFixed className={"h-3.5 w-3.5 " + (requesting ? "animate-spin" : "")} />
+          {requesting ? "Checking location..." : "Use approximate current location"}
+        </button>
+      </div>
+      {message && (
+        <p className={"mt-3 text-xs " + (captured ? "text-primary" : "text-muted-foreground")}>
+          {message}
+        </p>
+      )}
+      {location && (
+        <div className="mt-3 rounded-md border border-border bg-background/40 p-3 text-xs text-muted-foreground">
+          <div className="font-mono uppercase tracking-widest text-foreground">
+            {getApproximateLocationLabel(location)}
+          </div>
+          <div className="mt-1">{getApproximateLocationDetail(location)}</div>
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Approximate location only - no official dispatch is performed.
+      </p>
+    </div>
+  );
+}
+
+function ReportLocationHandoff({ demand }: { demand: DemandReport }) {
+  const location = getIssueApproximateLocation(demand);
+  if (!location) return null;
+
+  return (
+    <div className="mx-auto mt-3 max-w-md rounded-xl border border-border bg-surface/40 p-4 text-left">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        Approximate location
+      </div>
+      <div className="mt-1 text-sm font-medium">{getApproximateLocationLabel(location)}</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {getApproximateLocationDetail(location)}
+      </div>
+      <a
+        href={buildGoogleMapsSearchUrl(location)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+      >
+        Open approximate location in Google Maps <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        External map handoff only. Zone fallback remains available.
+      </p>
+    </div>
+  );
+}
+
+function EvidenceMetadataPicker({
+  evidenceType,
+  setEvidenceType,
+  witnessNote,
+  setWitnessNote,
+}: {
+  evidenceType: EvidenceType;
+  setEvidenceType: (type: EvidenceType) => void;
+  witnessNote: string;
+  setWitnessNote: (note: string) => void;
+}) {
+  return (
+    <div className="mt-5 rounded-xl border border-border bg-surface/30 p-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        Evidence metadata
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Evidence metadata only - no files are uploaded in this demo.
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {EVIDENCE_OPTIONS.map((option) => (
+          <button
+            key={option.type}
+            type="button"
+            onClick={() => setEvidenceType(option.type)}
+            className={
+              "rounded-lg border p-3 text-left transition " +
+              (evidenceType === option.type
+                ? "border-primary/60 bg-primary/10 text-foreground"
+                : "border-border bg-background/35 text-muted-foreground hover:border-primary/40 hover:text-foreground")
+            }
+          >
+            <div className="text-sm font-medium">{option.label}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{option.hint}</div>
+          </button>
+        ))}
+      </div>
+      {evidenceType === "witness_note" && (
+        <div className="mt-3">
+          <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Witness note
+          </label>
+          <textarea
+            value={witnessNote}
+            onChange={(e) => setWitnessNote(e.target.value.slice(0, 160))}
+            rows={3}
+            placeholder="Short note from someone who observed the issue."
+            className="mt-1 w-full resize-none rounded-md border border-border bg-background/50 p-2.5 text-sm outline-none focus:border-primary/60"
+          />
+          <div className="mt-1 text-right font-mono text-[10px] text-muted-foreground">
+            {witnessNote.length}/160
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DemandPreview({
   card,
   area,
   location,
+  evidence,
+  approximateLocation,
   allDemands,
   nowMs,
 }: {
   card: ClassifyOutput;
   area: string;
   location: string;
+  evidence: EvidenceMetadata;
+  approximateLocation: ApproximateLocation;
   allDemands: DemandReport[];
   nowMs: number;
 }) {
@@ -412,10 +722,12 @@ function DemandPreview({
     raw_text: card.clean_text,
     location_text: location,
     area_label: area,
-    latitude: 0,
-    longitude: 0,
+    latitude: approximateLocation.lat,
+    longitude: approximateLocation.lng,
     status: "new",
     upvotes: 1,
+    evidence,
+    approximateLocation,
     ...card,
   };
   const brief = buildCivicActionBrief(previewDemand, allDemands, nowMs);
@@ -451,16 +763,28 @@ function DemandPreview({
         <Field label="Location">
           {location} · {area}
         </Field>
+        <Field label="Approximate location">
+          {getApproximateLocationLabel(approximateLocation)} -{" "}
+          {getApproximateLocationDetail(approximateLocation)}
+        </Field>
         <Field label="Civic Priority">
           <CivicPriorityBadge score={brief.civicPriorityScore} reason={brief.civicPriorityReason} />
         </Field>
         <Field label="Responsible stakeholder">{brief.responsibleStakeholder}</Field>
+        <Field label="Evidence metadata">{formatEvidence(evidence)}</Field>
         <Field label="Community signal strength">{brief.communitySignalLabel}</Field>
         <Field label="Suggested next action">{brief.suggestedNextAction}</Field>
         <Field label="Why it matters">{brief.whyItMatters}</Field>
       </div>
     </div>
   );
+}
+
+function formatEvidence(evidence: EvidenceMetadata) {
+  if (evidence.type === "none") return "No evidence metadata";
+  if (evidence.type === "photo") return "Photo metadata noted";
+  if (evidence.type === "video") return "Video metadata noted";
+  return evidence.note ? `Witness note: ${evidence.note}` : "Witness note metadata noted";
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

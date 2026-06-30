@@ -6,6 +6,7 @@ import {
   type DemandCategory,
   type DemandReport,
   type DemandStatus,
+  type EvidenceMetadata,
   type ImpactPriority,
 } from "./types";
 
@@ -29,6 +30,12 @@ export interface CivicActionBrief {
   communitySignalCount: number;
   communitySignalLabel: string;
   communitySignalStrength: number;
+}
+
+export interface CivicLifecycleStage {
+  label: string;
+  detail: string;
+  complete: boolean;
 }
 
 const IMPACT_BOOST: Record<ImpactPriority, number> = {
@@ -147,6 +154,58 @@ export function getWhyItMatters(demand: DemandReport) {
     other: `This report points to a local civic friction that may need community review for ${group}.`,
   };
   return byCategory[demand.category];
+}
+
+export function getEvidenceSummary(evidence?: EvidenceMetadata) {
+  if (!evidence || evidence.type === "none") return "No evidence metadata";
+  if (evidence.type === "photo") return "Photo metadata noted";
+  if (evidence.type === "video") return "Video metadata noted";
+  if (evidence.note) return `Witness note: ${evidence.note}`;
+  return "Witness note metadata noted";
+}
+
+export function getVerificationLabel(count = 0) {
+  if (count <= 0) return "Awaiting community verification";
+  return `${count} community ${count === 1 ? "verification" : "verifications"}`;
+}
+
+export function buildCivicLifecycle(
+  demand: DemandReport,
+  responsibleStakeholder: string,
+): CivicLifecycleStage[] {
+  const verificationCount = demand.verificationCount ?? 0;
+  return [
+    {
+      label: "Reported",
+      detail: "Issue signal captured locally.",
+      complete: true,
+    },
+    {
+      label: "AI triaged",
+      detail: "Structured civic issue packet generated.",
+      complete: Boolean(demand.category && demand.recommended_actor),
+    },
+    {
+      label: "Community verified",
+      detail:
+        verificationCount > 0
+          ? getVerificationLabel(verificationCount)
+          : "Waiting for community verification.",
+      complete: verificationCount > 0,
+    },
+    {
+      label: "Routed",
+      detail: `Stakeholder routing: ${responsibleStakeholder}.`,
+      complete: Boolean(demand.recommended_actor),
+    },
+    {
+      label: demand.resolvedInDemo ? "Resolved in demo" : "Follow-up needed",
+      detail: demand.resolvedInDemo
+        ? "Marked locally as resolved for demo tracking."
+        : "Transparent demo workflow - no official dispatch is performed.",
+      complete: demand.resolvedInDemo === true,
+    },
+  ];
 }
 
 export function buildCivicActionBrief(

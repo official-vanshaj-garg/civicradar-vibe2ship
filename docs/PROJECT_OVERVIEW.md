@@ -11,7 +11,9 @@ CivicRadar is an AI-powered hyperlocal community issue intelligence platform. It
 2. **AI Triage Layer**: Structures text into actionable metadata (category, urgency, affected group).
 3. **Geospatial Hotspots**: Plots issues onto a live Bengaluru grid.
 4. **Civic Action Board**: Aggregates issues to identify underserved zones and generate Civic Priority scores for action.
-5. **Privacy Protection**: Rounding geographic coordinates to ~110m and redacting PII from text.
+5. **Civic Proof & Resolution Loop**: Adds evidence metadata, community verification, local lifecycle tracking, and contribution score.
+6. **Browser-Local Location Assist**: Optional approximate browser geolocation plus external Google Maps handoff links.
+7. **Privacy Protection**: Rounding geographic coordinates to ~110m and redacting PII from text.
 
 ## Accountability Action Pack
 CivicRadar now includes a demo-safe accountability layer that turns Civic Issue Cards into action priorities:
@@ -21,6 +23,24 @@ CivicRadar now includes a demo-safe accountability layer that turns Civic Issue 
 - **Action queue**: `/dashboard` highlights **Top Civic Issues Needing Action**, sorted by Civic Priority with stakeholder, status, similar-signal count, and suggested action.
 
 This is not official government integration. The demo does not claim automatic escalation, dispatch, or resolution.
+
+## Phase C1 Civic Proof & Resolution Loop
+Phase C1 adds a low-risk local accountability workflow:
+- **Evidence metadata only**: Users can mark no evidence, photo metadata, video metadata, or a short witness note. No files are uploaded or stored.
+- **Community verification**: Each browser/device can verify an issue once. Verified IDs and local verification counts are stored in `localStorage`.
+- **Lifecycle tracking**: Issue details show a transparent demo workflow: Reported, AI triaged, Community verified, Routed, and Follow-up needed / Resolved in demo.
+- **Community contribution**: The app stores a restrained local score: +10 report, +5 first verification, +3 evidence metadata.
+
+This remains frontend-only and demo-safe: no backend, database, auth, uploads, official dispatch, or real government resolution is added.
+
+## Phase C2 Browser Geolocation + Google Maps External Handoff
+Phase C2 adds judge-visible location usefulness without increasing deployment risk:
+- **User-triggered geolocation**: `/report` offers "Use approximate current location" and never requests permission automatically.
+- **Approximate local metadata**: New local reports can store rounded `lat`, `lng`, optional `accuracyMeters`, source (`browser_geolocation` or `zone`), and `capturedAt`.
+- **Graceful fallback**: Denied, unsupported, unavailable, and timeout states keep the existing zone selection flow usable.
+- **Google Maps handoff**: Issue detail surfaces use a normal external `https://www.google.com/maps/search/?api=1&query=<lat>,<lng>` link when coordinates exist.
+
+This does not add Google Maps JavaScript API, Maps API keys, embedded maps, backend location storage, live tracking, or official dispatch claims. Location remains browser-local/localStorage demo data.
 
 ## Technologies Used
 - **Frontend**: React, Vite, TypeScript
@@ -35,11 +55,13 @@ This is not official government integration. The demo does not claim automatic e
 ## Demo Flow
 1. **Explore the Map**: A user lands on the Bengaluru civic grid, visualizing existing seeded hotspots across various wards.
 2. **Report an Issue**: The user navigates to the Report page and types a complaint in plain English, selecting their approximate zone.
-3. **AI Generation**: The engine processes the text and instantly previews a structured Civic Issue Card.
-4. **Dashboard Aggregation**: The user submits the card, which is then immediately reflected on the live map and factored into the dashboard's statistics, Civic Priority scores, and suggested actions.
+3. **Optional Location Assist**: The user may capture approximate browser location, or continue with the zone fallback if permission is denied or unavailable.
+4. **AI Generation**: The engine processes the text and instantly previews a structured Civic Issue Card.
+5. **Dashboard Aggregation**: The user submits the card, which is then immediately reflected on the live map and factored into the dashboard's statistics, Civic Priority scores, proof metadata, and suggested actions.
 
 ## Current Scope and Limitations
 - The application currently runs entirely in the browser (frontend-only) to guarantee a seamless, rapid demonstration experience.
 - State is preserved locally via `localStorage`.
+- Optional browser geolocation and Google Maps handoff links are demo/local only; there is no Maps JavaScript API, API key, or backend location storage.
 - The AI intelligence layer operates in a deterministic mock mode for stability. Real AI endpoints can be hot-swapped into the `classify` adapter in the future.
 - The data is limited to a Bengaluru pilot (seeded data + user local data).
